@@ -1,49 +1,31 @@
-#  Python Virtual Environments & Interpreter Cache
+Python
 
-**/myenv/
-**/.venv/
-**/env/
-**/venv/
-**/ENV/
-**/_pycache_/
-*/.pyc
-*/.pyo
-*/.pyd
-**/.pytest_cache/
-**/.pyvenv.cfg
-
-#  Node.js Dependencies & Next.js Build Artifacts
-
-**/node_modules/
-**/.next/
-**/out/
-**/build/
-**/dist/
-**/.lighthouserc/
-**/.eslintcache/
-*.tsbuildinfo
-
-#  Infrastructure Containers & Database Volumes
-
-*/.log
-**/qdrant_data/
-**/.docker/
-
-#  Security Records & Cryptographic Keys
-
+pycache/
+*.pyc
+*.pyo
+*.pyd
+venv/
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-*/.pem
-*/.key
 
-#  Operating System Discards (Windows / macOS Metadata)
+FastAPI
+
+*.log
+
+Node.js
+
+node_modules/
+.next/
+out/
+
+VS Code
+
+.vscode/
+
+Operating System
 
 .DS_Store
-.DS_Store?
-._*
 Thumbs.db
-ehthumbs.db
-Desktop.ini
+
+Docker
+
+docker-compose.override.yml

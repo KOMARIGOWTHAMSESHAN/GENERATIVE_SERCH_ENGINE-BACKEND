@@ -23,7 +23,7 @@ export default function Home() {
     setLoading(true);
 
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/generative-search", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/search`); {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: currentQuery }),

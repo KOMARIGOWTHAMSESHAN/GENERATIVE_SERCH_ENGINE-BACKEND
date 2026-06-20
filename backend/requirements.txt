@@ -6,3 +6,4 @@ qdrant-client
 langchain-text-splitters
 python-dotenv
 tavily-python
+youtube-search-python

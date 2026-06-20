@@ -23,7 +23,7 @@ export default function Home() {
     setLoading(true);
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/generative-search`, {
+      const res = await fetch(" https://generative-serch-engine.onrender.com/api/generative-search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: currentQuery }),

@@ -1,224 +1,216 @@
 "use client";
 
-import { Content } from "next/font/google";
 import { useState } from "react";
 
 export default function Home() {
   const [query, setQuery] = useState("");
   const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
-  
-  // Instant Adaptive Layout State
-  const [uiMode, setUiMode] = useState<"search" | "research" | null>(null);
-  const [backendData, setBackendData] = useState({
-    searchResults:  "",
-    llmResponse: ""
+  const [activeTab, setActiveTab] = useState<"all" >("all");
+
+  const [data, setData] = useState({
+    intent: "web",
+    web_results: [],
+    answer: "",
+    followups: [],
   });
 
-  // Fast Frontend Intent Rule Engine
-  const classifyIntentLocally = (text: string): "search" | "research" => {
-    const cleanText = text.toLowerCase().trim();
-    
-    // Quick triggers for research/deep queries
-    const researchKeywords = [
-      "explain", "why", "how", "what is", "difference between", 
-      "summarize", "write", "code", "create", "teach"
-    ];
-    
-    const isResearch = researchKeywords.some(keyword => cleanText.startsWith(keyword) || cleanText.includes(" " + keyword));
-    return isResearch ? "research" : "search";
-  };
+  const handleSearch = async (overrideQuery?: string) => {
+    const currentQuery = overrideQuery || query;
+    if (!currentQuery.trim()) return;
 
-  const handleSearch = async () => {
-    if (!query.trim()) return;
-    
-    // 1. INSTANTLY change layout based on query keywords (0-second delay)
-    const detectedMode = classifyIntentLocally(query);
-    setUiMode(detectedMode);
     setSearched(true);
     setLoading(true);
 
-    if (detectedMode === "search") {
-      setBackendData({ searchResults: "🔍 Querying local Qdrant vectors...", llmResponse: "" });
-    } else {
-      setBackendData({ searchResults: "", llmResponse: "🤖 Llama 3 is thinking..." });
-    }
-    
     try {
-      // 2. Fire the network call immediately using the direct standard localhost loopback
-      const response = await fetch("http://127.0.0.1:8000/api/generative-search", {
-        
+      const res = await fetch("http://127.0.0.1:8000/api/generative-search", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ query }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: currentQuery }),
       });
 
-      if (!response.ok) throw new Error(`Backend Error : ${response.status}`);
-      const data = await response.json();
-
-      
-      console.log("STATUS :", response.status)
-      
-      console.log("DATA:",data)
-
-      // 3. Populate layout dynamically with data
-      setBackendData({
-        searchResults: data.answer || data.search_results || data.context || JSON.stringify(data.results || [] , null , 2 ),
-        llmResponse: data.answer || data.llm_response || data.response || data.output || data.result || "No response content generated."
+      const result = await res.json();
+      setData({
+        intent: result.intent || "web",
+        web_results: result.web_results || [],
+        answer: result.answer || "",
+        followups: result.followups || [],
       });
-
-    } catch (error) {
-      console.error("Network bridge down:", error);
-      // Fast fallback display if backend drops connection
-      setBackendData({
-        searchResults: `Showing offline index sandbox matching results for: "${query}"`,
-        llmResponse: `⚠️ Frontend changed layout instantly, but couldn't pull text data from port 8000.`
-      });
+      setActiveTab("all");
+    } catch (err) {
+      console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
-  const reset = () => {
+  const handleReset = () => {
     setQuery("");
     setSearched(false);
-    setUiMode(null);
-    setBackendData({ searchResults: "", llmResponse: "" });
+    setActiveTab("all");
   };
 
+  // Helper to detect social media and return a clean badge style
+  const getSocialBadge = (url: string) => {
+    const lowerUrl = url.toLowerCase ? url.toLowerCase() : String(url).toLowerCase();
+    if (lowerUrl.includes("youtube.com") || lowerUrl.includes("youtu.be")) {
+      return { text: "YouTube", color: "#ff0000", bg: "#fff5f5" };
+    }
+    
+    return null;
+  };
+
+  // ==========================================
+  // 1. INITIAL LANDING SCREEN INTERFACE
+  // ==========================================
+  if (!searched) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100vh", fontFamily: "'Segoe UI', system-ui, sans-serif", background: "#f8f9fa" }}>
+        <h1 style={{ fontSize: "48px", fontWeight: "800", color: "#1a1d20", marginBottom: "32px", letterSpacing: "-1px" }}>
+          Generative Search Engine<span style={{ color: "#1a73e8" }}>.</span>
+        </h1>
+        <div style={{ display: "flex", width: "100%", maxWidth: "620px", position: "relative" }}>
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search links (e.g. ' Search (or) ask Anything....')"
+            style={{ width: "100%", padding: "18px 28px", borderRadius: "30px", border: "1px solid #ced4da", fontSize: "16px", boxShadow: "0 4px 12px rgba(0,0,0,0.05)", outline: "none", transition: "0.2s" }}
+            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+          />
+          <button onClick={() => handleSearch()} style={{ position: "absolute", right: "8px", top: "7px", width: "46px", height: "46px", borderRadius: "50%", background: "#1a73e8", color: "white", border: "none", cursor: "pointer", fontSize: "16px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            🔍
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ==========================================
+  // LOADING STATE
+  // ==========================================
+  if (loading) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", height: "100vh", fontFamily: "'Segoe UI', sans-serif", background: "#f8f9fa" }}>
+        <div style={{ width: "40px", height: "40px", border: "3px solid #e9ecef", borderTop: "3px solid #1a73e8", borderRadius: "50%", animation: "spin 1s linear infinite", marginBottom: "20px" }}></div>
+        <p style={{ fontSize: "16px", color: "#495057", fontWeight: "500" }}>Rendering optimized interface elements...</p>
+        <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+
+  // ==========================================
+  // 2. INTERFACE A: GEMINI AI CANVAS VIEW
+  // ==========================================
+  if (data.intent === "ai") {
+    return (
+      <div style={{ minHeight: "100vh", background: "#0f1114", color: "#e3e3e3", fontFamily: "'Segoe UI', system-ui, sans-serif", padding: "50px 24px" }}>
+        <div style={{ maxWidth: "760px", margin: "0 auto" }}>
+          <button onClick={handleReset} style={{ background: "#202327", color: "#999fa5", border: "1px solid #2f3339", padding: "10px 22px", borderRadius: "20px", cursor: "pointer", fontSize: "14px", marginBottom: "35px", fontWeight: "500", transition: "0.2s" }}>
+            ← Back to Home
+          </button>
+
+          <div style={{ background: "linear-gradient(135deg, #1a73e8, #a855f7)", width: "fit-content", padding: "6px 14px", borderRadius: "20px", fontSize: "11px", fontWeight: "700", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "20px", color: "#fff" }}>
+             Research Workspace
+          </div>
+
+          <h2 style={{ fontSize: "36px", color: "#ffffff", fontWeight: "600", marginBottom: "25px", letterSpacing: "-0.5px" }}>{query}</h2>
+
+          <div style={{ fontSize: "16px", lineHeight: "1.8", color: "#e3e3e3", whiteSpace: "pre-wrap", background: "#16191f", border: "1px solid #252930", padding: "35px", borderRadius: "20px", boxShadow: "0 10px 30px rgba(0,0,0,0.15)" }}>
+            {data.answer}
+          </div>
+
+          <div style={{ marginTop: "40px" }}>
+            <h4 style={{ color: "#70757a", marginBottom: "15px", fontSize: "14px", fontWeight: "600" }}>Suggested Pathways:</h4>
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              {data.followups.map((q: string, i: number) => (
+                <button key={i} onClick={() => { setQuery(q); handleSearch(q); }} style={{ textAlign: "left", background: "#1c1f26", border: "1px solid #2b303b", padding: "14px 20px", borderRadius: "12px", cursor: "pointer", color: "#8ab4f8", fontSize: "14px", fontWeight: "500" }}>
+                  ✦ {q}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ==========================================
+  // 3. INTERFACE B: CLEAN GOOGLE SEARCH VIEW
+  // ==========================================
   return (
-    <div
-      style={{
-        fontFamily: "'Segoe UI', Arial, sans-serif",
-        minHeight: "100vh",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: !searched ? "center" : "flex-start",
-        background: uiMode === "research" ? "#1e1e2e" : "#f8f9fa",
-        color: uiMode === "research" ? "#cdd6f4" : "#202124",
-        transition: "background 0.2s ease",
-        padding: "20px"
-      }}
-    >
-      {/* INITIAL LANDING VIEW */}
-      {!searched && (
-        <div style={{ textAlign: "center", width: "100%", maxWidth: "600px" }}>
-          <h1 style={{ fontSize: "42px", fontWeight: "800", marginBottom: "8px", color: "#111" }}>
-            Generative Search Engine
-          </h1>
-          <p style={{ color: "#666", fontSize: "15px", marginBottom: "40px" }}>
-            Dynamic Intent-Driven Morphing Architecture
-          </p>
-
-          <div style={{ display: "flex", width: "100%", gap: "12px" }}>
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-              placeholder="Ask a question or enter web search terms..."
-              style={{
-                flex: 1,
-                padding: "16px 24px",
-                borderRadius: "30px",
-                border: "1px solid #dadce0",
-                fontSize: "16px",
-                outline: "none",
-                background: "#fff"
-              }}
-            />
-            <button
-              onClick={handleSearch}
-              style={{
-                padding: "16px 32px",
-                borderRadius: "30px",
-                border: "none",
-                background: "#000",
-                color: "#fff",
-                fontSize: "16px",
-                fontWeight: "600",
-                cursor: "pointer"
-              }}
-            >
-              Search
-            </button>
-          </div>
+    <div style={{ minHeight: "100vh", background: "#ffffff", color: "#202124", fontFamily: "'Segoe UI', system-ui, sans-serif", padding: "30px 40px" }}>
+      
+      {/* Top Search Bar Row */}
+      <div style={{ display: "flex", alignItems: "center", gap: "40px", marginBottom: "15px" }}>
+        <h2 onClick={handleReset} style={{ fontSize: "24px", fontWeight: "700", margin: 0, cursor: "pointer", color: "#1a73e8", letterSpacing: "-1px" }}>
+          Generative Search Engine<span style={{ color: "#34a853" }}>.</span>
+        </h2>
+        <div style={{ display: "flex", width: "100%", maxWidth: "540px" }}>
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            style={{ width: "100%", padding: "12px 22px", borderRadius: "24px", border: "1px solid #dfe1e5", fontSize: "15px", outline: "none", boxShadow: "0 1px 6px rgba(32,33,36,0.08)" }}
+            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+          />
         </div>
-      )}
+      </div>
 
-      {/* ADAPTIVE MORPHED UI VIEWS */}
-      {searched && (
-        <div style={{ width: "100%", maxWidth: "800px", marginTop: "20px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "20px", marginBottom: "30px" }}>
-            <button
-              onClick={reset}
-              style={{
-                padding: "8px 16px",
-                border: "1px solid",
-                borderColor: uiMode === "research" ? "#45475a" : "#dadce0",
-                borderRadius: "20px",
-                background: uiMode === "research" ? "#313244" : "#fff",
-                color: uiMode === "research" ? "#cdd6f4" : "#202124",
-                cursor: "pointer"
-              }}
-            >
-              ⬅️ Back
-            </button>
-            <h3 style={{ margin: 0, fontWeight: "500" }}>
-              Results for: <span style={{ color: uiMode === "research" ? "#89b4fa" : "#1a0dab" }}>{query}</span>
-            </h3>
+      {/* Modern Horizontal Navigation Tabs */}
+      <div style={{ display: "flex", gap: "24px", paddingLeft: "160px", marginBottom: "30px", borderBottom: "1px solid #f1f3f4" }}>
+        {(["all"] as const).map((t) => (
+          <button
+            key={t}
+            onClick={() => setActiveTab(t)}
+            style={{ padding: "10px 4px", border: "none", background: "none", cursor: "pointer", fontSize: "14px", color: activeTab === t ? "#1a73e8" : "#5f6368", fontWeight: activeTab === t ? "600" : "500", borderBottom: activeTab === t ? "3px solid #1a73e8" : "3px solid transparent", textTransform: "capitalize" }}
+          >
+            {t === "all" ? "All Links" : t}
+          </button>
+        ))}
+      </div>
+
+      {/* Main Results Left-Aligned Layout Container */}
+      <div style={{ paddingLeft: "160px", maxWidth: "680px" }}>
+        {activeTab === "all" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+            {data.web_results.length === 0 ? (
+              <p style={{ color: "#70757a", fontSize: "14px" }}>No indexed records found.</p>
+            ) : (
+              data.web_results.map((item: any, i: number) => {
+                const badge = getSocialBadge(item.url);
+                return (
+                  <div key={i} style={{ display: "flex", flexDirection: "column", background: "#ffffff", padding: "12px 0" }}>
+                    
+                    {/* The Upper URL Header Container */}
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "4px" }}>
+                      <span style={{ fontSize: "13px", color: "#202124", opacity: 0.85, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "450px" }}>
+                        {item.url}
+                      </span>
+                      {badge && (
+                        <span style={{ fontSize: "11px", fontWeight: "600", padding: "2px 8px", borderRadius: "12px", color: badge.color, background: badge.bg, border: `1px solid ${badge.color}20` }}>
+                          {badge.text}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Blue Title Link wraps perfectly */}
+                    <a href={item.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none", width: "fit-content" }}>
+                      <h3 style={{ color: "#1a0dab", fontSize: "20px", fontWeight: "500", margin: "0 0 6px 0", lineHeight: "1.3" }} onMouseOver={(e) => e.currentTarget.style.textDecoration = "underline"} onMouseOut={(e) => e.currentTarget.style.textDecoration = "none"}>
+                        {item.title}
+                      </h3>
+                    </a>
+
+                    {/* Snippet: Truncated neatly up to 2-3 logical lines so it never looks cluttered */}
+                    <p style={{ fontSize: "14px", color: "#4d5156", margin: 0, lineHeight: "1.5", display: "-webkit-box", WebkitLineClamp: "3", WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                      {item.snippet}
+                    </p>
+                  </div>
+                );
+              })
+            )}
           </div>
+        )}
 
-          {/* LAYOUT A: GOOGLE VIEW STYLE */}
-          {uiMode === "search" && (
-            <div>
-              <div style={{ fontSize: "14px", color: "#70757a", marginBottom: "15px" }}>
-                {loading ? "⚡ Running rapid index traversal..." : "Document segments found successfully"}
-              </div>
-              <div
-                style={{
-                  background: "#fff",
-                  padding: "24px",
-                  borderRadius: "12px",
-                  border: "1px solid #e0e0e0",
-                  color: "#202124"
-                }}
-              >
-                <h2 style={{ color: "#1a0dab", margin: "0 0 8px 0", fontSize: "20px", fontWeight: "500" }}>
-                  Knowledge Graph Vector Match for "{query}"
-                </h2>
-                <p style={{ color: "#4d5156", fontSize: "14px", lineHeight: "1.6", margin: 0, whiteSpace: "pre-wrap" }}>
-                  {backendData.searchResults}
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* LAYOUT B: CHATGPT VIEW STYLE */}
-          {uiMode === "research" && (
-            <div
-              style={{
-                background: "#313244",
-                padding: "30px",
-                borderRadius: "16px",
-                lineHeight: "1.7",
-                fontSize: "16px"
-              }}
-            >
-              <div style={{ marginBottom: "16px" }}>
-                <span style={{ background: "#f38ba8", color: "#11111b", padding: "4px 10px", borderRadius: "12px", fontSize: "12px", fontWeight: "700" }}>
-                  {loading ? "⏳ SYSTEM GENERATING..." : "GENERATIVE COGNITIVE RESPONSE"}
-                </span>
-              </div>
-              <p style={{  whiteSpace: "pre-wrap",lineHeight: "1.8" }}>
-                {backendData.llmResponse}
-              </p>
-            </div>
-          )}
         </div>
-      )}
     </div>
   );
 }
